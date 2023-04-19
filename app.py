@@ -2,6 +2,9 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import os, json
 from flask_cors import CORS
 from pusher import pusher
+import boto3
+from boto3.dynamodb.conditions import Key
+import uuid
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -22,6 +25,18 @@ pusher = pusher_client = pusher.Pusher(
   ssl=True
 )
 
+
+dynamodb = boto3.resource(
+    'dynamodb',
+    aws_access_key_id='AKIA5UOMHERXTEIB4LRW',
+    aws_secret_access_key='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',
+    region_name='ap-south-1'
+)
+
+# Get the Users table
+table = dynamodb.Table('Users')
+
+
 # Register route
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -29,11 +44,18 @@ def register():
         name = request.form['name']
         email = request.form['email']
         password = request.form['password']
-        
-        # Save user credentials in the file
-        with open('user_credentials.txt', 'a') as f:
-            f.write(f'{name}:{password}\n')
-        
+
+        # Generate a unique ID for the user
+        user_id = str(uuid.uuid4())
+
+        # Save user credentials in DynamoDB
+        table.put_item(Item={
+            'id': user_id,
+            'name': name,
+            'email': email,
+            'password': password
+        })
+
         # Redirect to the login page
         return redirect(url_for('login'))
 
@@ -64,19 +86,25 @@ def admin():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
+        name = request.form.get('username')
         password = request.form.get('password')
-        print(username, password)
-        # Check user credentials from file
-        with open('user_credentials.txt', 'r') as f:
-            for line in f:
-                if line.strip() == f'{username}:{password}':
-                    # Set user as logged in using session
-                    session['logged_in'] = True
-                    session['admin'] = username == 'admin'
-                    return redirect(url_for('index'))
+        print(name, password)
+        # Query DynamoDB for the user with the given name
+        
+        response = table.query(
+            IndexName='name-index',
+            KeyConditionExpression=Key('name').eq(name)
+        )
 
-        return render_template('login.html', error='Invalid username or password')
+        if response['Items'] and response['Items'][0]['password'] == password:
+            # Set user as logged in using session
+            session['logged_in'] = True
+            session['user_id'] = response['Items'][0]['id']
+            # session['admin'] = response['Items'][0]['admin'] == 'true'
+            return redirect(url_for('index'))
+
+        return render_template('login.html', error='Invalid name or password')
+
     elif 'logged_in' in session and session['logged_in']:
         return redirect(url_for('index'))
     else:
