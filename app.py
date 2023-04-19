@@ -1,0 +1,112 @@
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+import os, json
+from flask_cors import CORS
+from pusher import pusher
+
+app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
+app.secret_key = 'secret_key'
+
+# Create a file to store user credentials if it doesn't exist
+if not os.path.exists('user_credentials.txt'):
+    with open('user_credentials.txt', 'w') as f:
+        f.write('')
+
+# Pusher setup
+pusher = pusher_client = pusher.Pusher(
+  app_id='1587091',
+  key='c4b2719a837f669e59ca',
+  secret='0e87926247b9cf3cbf41',
+  cluster='ap2',
+  ssl=True
+)
+
+# Register route
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
+        
+        # Save user credentials in the file
+        with open('user_credentials.txt', 'a') as f:
+            f.write(f'{name}:{password}\n')
+        
+        # Redirect to the login page
+        return redirect(url_for('login'))
+
+    # If not a POST request, show the registration form
+    return render_template('register.html')
+
+
+# Index route for logged in users
+@app.route('/')
+def index():
+    if 'logged_in' not in session:
+        return redirect(url_for('register'))
+    elif session['logged_in']:
+        # if session.get('admin'):
+        #     return render_template('admin.html')
+        # else:
+            return render_template('index.html')
+    
+@app.route('/admin')
+def admin():
+    if 'logged_in' not in session:
+        return redirect(url_for('register'))
+    elif session['logged_in']:
+            return render_template('admin.html')
+
+
+# Login route
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        print(username, password)
+        # Check user credentials from file
+        with open('user_credentials.txt', 'r') as f:
+            for line in f:
+                if line.strip() == f'{username}:{password}':
+                    # Set user as logged in using session
+                    session['logged_in'] = True
+                    session['admin'] = username == 'admin'
+                    return redirect(url_for('index'))
+
+        return render_template('login.html', error='Invalid username or password')
+    elif 'logged_in' in session and session['logged_in']:
+        return redirect(url_for('index'))
+    else:
+        return render_template('login.html')
+
+# Logout route
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'message': 'Logout successful'})
+
+
+@app.route('/new/guest', methods=['POST'])
+def guestUser():
+    data = request.json
+
+    pusher.trigger(u'general-channel', u'new-guest-details', {
+        'name': data['name'],
+        'email': data['email']
+    })
+
+    return json.dumps(data)
+
+
+@app.route("/pusher/auth", methods=['POST'])
+def pusher_authentication():
+    auth = pusher.authenticate(channel=request.form['channel_name'],socket_id=request.form['socket_id'])
+    return json.dumps(auth)
+
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
