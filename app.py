@@ -28,8 +28,8 @@ pusher = pusher_client = pusher.Pusher(
 
 dynamodb = boto3.resource(
     'dynamodb',
-    aws_access_key_id='AKIA5UOMHERXTEIB4LRW',
-    aws_secret_access_key='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',
+    aws_access_key_id='AKIAXAT57BMYAKSZRR7Z',
+    aws_secret_access_key='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',
     region_name='ap-south-1'
 )
 
