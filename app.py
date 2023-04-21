@@ -18,9 +18,9 @@ if not os.path.exists('user_credentials.txt'):
 
 # Pusher setup
 pusher = pusher_client = pusher.Pusher(
-  app_id='1587091',
-  key='c4b2719a837f669e59ca',
-  secret='0e87926247b9cf3cbf41',
+  app_id='pusherkey',
+  key='key',
+  secret='secret-key',
   cluster='ap2',
   ssl=True
 )
@@ -28,8 +28,8 @@ pusher = pusher_client = pusher.Pusher(
 
 dynamodb = boto3.resource(
     'dynamodb',
-    aws_access_key_id='AKIAXAT57BMYAKSZRR7Z',
-    aws_secret_access_key='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',
+    aws_access_key_id='access-key',
+    aws_secret_access_key='secret-key',
     region_name='ap-south-1'
 )
 
